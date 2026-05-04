@@ -87,7 +87,8 @@ button {
 input[type="text"],
 input[type="url"],
 input[type="number"],
-textarea {
+textarea,
+select {
   width: 100%;
   margin-top: 6px;
   padding: 10px 12px;
@@ -129,6 +130,11 @@ button.primary:hover {
 button.danger {
   color: var(--danger);
   border-color: #fecaca;
+}
+
+button.full-width {
+  width: 100%;
+  margin-top: 6px;
 }
 
 button:disabled {
@@ -190,6 +196,58 @@ video {
 
 .help {
   margin: 12px 0 0;
+  font-size: 13px;
+}
+
+.dataset-info,
+.bundle-box {
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #f8fafc;
+  color: #334155;
+}
+
+.dataset-info dl {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 6px 12px;
+  margin: 0;
+}
+
+.dataset-info dt {
+  font-weight: 750;
+}
+
+.dataset-info dd {
+  margin: 0;
+  word-break: break-all;
+}
+
+.bundle-box h3 {
+  margin: 0;
+  font-size: 16px;
+}
+
+.bundle-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+  max-height: 150px;
+  overflow: auto;
+}
+
+.bundle-item {
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: #fff;
+  font-size: 13px;
+}
+
+.bundle-list.empty {
+  color: var(--muted);
   font-size: 13px;
 }
 

@@ -49,8 +49,15 @@
   };
 
   const DRAFT_KEY = "temporalFrameLabeler.v1.draft";
+  const BUNDLE_KEY = "temporalFrameLabeler.v1.bundle";
 
   const elements = {
+    datasetFolder: document.getElementById("datasetFolder"),
+    datasetStatus: document.getElementById("datasetStatus"),
+    datasetSelect: document.getElementById("datasetSelect"),
+    cameraSelect: document.getElementById("cameraSelect"),
+    loadDatasetVideo: document.getElementById("loadDatasetVideo"),
+    datasetInfo: document.getElementById("datasetInfo"),
     videoFile: document.getElementById("videoFile"),
     videoUrl: document.getElementById("videoUrl"),
     loadUrl: document.getElementById("loadUrl"),
@@ -86,6 +93,12 @@
     exportJson: document.getElementById("exportJson"),
     exportCsv: document.getElementById("exportCsv"),
     clearSegments: document.getElementById("clearSegments"),
+    addToBundle: document.getElementById("addToBundle"),
+    bundleCount: document.getElementById("bundleCount"),
+    bundleList: document.getElementById("bundleList"),
+    downloadBundleJson: document.getElementById("downloadBundleJson"),
+    downloadBundleCsv: document.getElementById("downloadBundleCsv"),
+    clearBundle: document.getElementById("clearBundle"),
   };
 
   let segments = [];
@@ -94,6 +107,9 @@
   let loadedVideoName = "";
   let loadedVideoUrl = "";
   let autoTotalFrames = true;
+  let datasetItems = [];
+  let currentDatasetItem = null;
+  let annotationBundle = [];
 
   function labelMap(kind) {
     return new Map(LABELS[kind].map((item) => [item.value, item.label]));
@@ -119,6 +135,259 @@
       `;
       container.appendChild(label);
     }
+  }
+
+  async function handleDatasetFolderSelection(fileList) {
+    const files = [...(fileList || [])].filter((file) => file.webkitRelativePath);
+    if (files.length === 0) {
+      setDatasetStatus("선택된 dataset 폴더 파일이 없습니다.");
+      return;
+    }
+
+    try {
+      const parsedItems = await parseDatasetFiles(files);
+      if (parsedItems.length === 0) {
+        setDatasetStatus("meta/info.json과 videos/.../episode_*.mp4 구조를 찾지 못했습니다.");
+        return;
+      }
+
+      mergeDatasetItems(parsedItems);
+      renderDatasetSelectors();
+      setDatasetStatus(`${parsedItems.length}개 video stream 인식, 전체 ${datasetItems.length}개 stream 사용 가능.`);
+      if (!currentDatasetItem) {
+        elements.datasetSelect.value = episodeKey(parsedItems[0]);
+        renderCameraSelector();
+        elements.cameraSelect.value = parsedItems[0].camera;
+        await loadSelectedDatasetVideo({ clearExistingSegments: segments.length === 0 });
+      }
+    } catch (error) {
+      setDatasetStatus(`Dataset 폴더 읽기 실패: ${error.message || error}`);
+    } finally {
+      elements.datasetFolder.value = "";
+    }
+  }
+
+  async function parseDatasetFiles(files) {
+    const byPath = new Map(files.map((file) => [file.webkitRelativePath, file]));
+    const roots = [];
+    for (const file of files) {
+      const path = file.webkitRelativePath;
+      if (path.endsWith("/meta/info.json")) {
+        roots.push(path.slice(0, -"/meta/info.json".length));
+      }
+    }
+
+    const items = [];
+    for (const root of roots.sort()) {
+      const info = await readJsonFile(byPath.get(`${root}/meta/info.json`), {});
+      const tasks = await readJsonlFile(byPath.get(`${root}/meta/tasks.jsonl`));
+      const fpsValue = datasetFps(info);
+      const datasetId = root.split("/").pop() || root;
+      const defaultTask = defaultTaskDescription(tasks);
+      const phaseCacheByEpisode = phaseCacheMap(files, root);
+
+      for (const file of files) {
+        const relativePath = file.webkitRelativePath;
+        const prefix = `${root}/videos/`;
+        if (!relativePath.startsWith(prefix) || !relativePath.toLowerCase().endsWith(".mp4")) continue;
+        const tail = relativePath.slice(prefix.length);
+        const parts = tail.split("/");
+        const filename = parts[parts.length - 1];
+        const episodeId = filename.replace(/\.mp4$/i, "");
+        if (!/^episode_\d+$/i.test(episodeId)) continue;
+        const cameraPath = parts.slice(0, -1).join("/");
+        const camera = cameraName(cameraPath);
+        const item = {
+          key: `${root}|${episodeId}|${camera}`,
+          dataset_root: root,
+          dataset_id: datasetId,
+          episode_id: episodeId,
+          camera,
+          camera_path: cameraPath,
+          video_file: file,
+          video_relative_path: relativePath,
+          fps: fpsValue,
+          task_description: defaultTask,
+          phase_cache_file: phaseCacheByEpisode.get(episodeId) || null,
+        };
+        items.push(item);
+      }
+    }
+
+    items.sort((a, b) => a.key.localeCompare(b.key));
+    return items;
+  }
+
+  function mergeDatasetItems(items) {
+    const byKey = new Map(datasetItems.map((item) => [item.key, item]));
+    for (const item of items) byKey.set(item.key, item);
+    datasetItems = [...byKey.values()].sort((a, b) => a.key.localeCompare(b.key));
+  }
+
+  function phaseCacheMap(files, root) {
+    const out = new Map();
+    const preferred = [".phase1_v41_local", ".phase1_v40_local", ".phase1_local"];
+    for (const phaseRoot of preferred) {
+      for (const file of files) {
+        const path = file.webkitRelativePath;
+        if (!path.startsWith(`${root}/${phaseRoot}/`) || !path.endsWith(".json")) continue;
+        const match = path.match(/(episode_\d+)\.phase1(?:_v\d+)?(?:\.[^.]+)?\.json$/);
+        if (match && !out.has(match[1])) out.set(match[1], file);
+      }
+    }
+    return out;
+  }
+
+  async function readJsonFile(file, fallback = null) {
+    if (!file) return fallback;
+    try {
+      return JSON.parse(await file.text());
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  async function readJsonlFile(file) {
+    if (!file) return [];
+    try {
+      return (await file.text())
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => JSON.parse(line));
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function datasetFps(info) {
+    const direct = Number.parseFloat(info && info.fps);
+    if (Number.isFinite(direct) && direct > 0) return direct;
+    const features = info && typeof info.features === "object" ? info.features : {};
+    for (const spec of Object.values(features)) {
+      const videoFps = Number.parseFloat(spec && spec.video_info && spec.video_info["video.fps"]);
+      if (Number.isFinite(videoFps) && videoFps > 0) return videoFps;
+    }
+    return 30;
+  }
+
+  function defaultTaskDescription(tasks) {
+    const valid = tasks.find((item) => item && item.task && String(item.task).trim().toLowerCase() !== "valid");
+    const first = valid || tasks.find((item) => item && item.task);
+    return first ? String(first.task).trim() : "";
+  }
+
+  function cameraName(cameraPath) {
+    const last = String(cameraPath || "").split("/").filter(Boolean).pop() || "camera";
+    return last.replace(/^observation\.images?\./, "");
+  }
+
+  function episodeKey(item) {
+    return `${item.dataset_root}|${item.episode_id}`;
+  }
+
+  function setDatasetStatus(message) {
+    elements.datasetStatus.textContent = message || "";
+  }
+
+  function renderDatasetSelectors() {
+    const current = elements.datasetSelect.value;
+    const seen = new Set();
+    elements.datasetSelect.innerHTML = "";
+    for (const item of datasetItems) {
+      const key = episodeKey(item);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      const option = document.createElement("option");
+      option.value = key;
+      option.textContent = `${item.dataset_id} / ${item.episode_id}`;
+      elements.datasetSelect.appendChild(option);
+    }
+    if (current && [...elements.datasetSelect.options].some((option) => option.value === current)) {
+      elements.datasetSelect.value = current;
+    }
+    renderCameraSelector();
+  }
+
+  function renderCameraSelector() {
+    const selectedEpisode = elements.datasetSelect.value;
+    const current = elements.cameraSelect.value;
+    const items = datasetItems.filter((item) => episodeKey(item) === selectedEpisode);
+    elements.cameraSelect.innerHTML = "";
+    for (const item of items) {
+      const option = document.createElement("option");
+      option.value = item.camera;
+      option.textContent = item.camera;
+      elements.cameraSelect.appendChild(option);
+    }
+    if (current && items.some((item) => item.camera === current)) {
+      elements.cameraSelect.value = current;
+    }
+  }
+
+  async function loadSelectedDatasetVideo(options = {}) {
+    const item = datasetItems.find(
+      (candidate) =>
+        episodeKey(candidate) === elements.datasetSelect.value &&
+        candidate.camera === elements.cameraSelect.value
+    );
+    if (!item) {
+      setDatasetStatus("로드할 dataset video가 선택되지 않았습니다.");
+      return;
+    }
+    if (!options.clearExistingSegments && segments.length > 0) {
+      const ok = window.confirm("현재 등록된 구간이 있습니다. 먼저 '현재 annotation 누적' 또는 JSON 다운로드를 권장합니다. 그래도 새 영상을 로드할까요?");
+      if (!ok) return;
+    }
+
+    const enriched = await enrichDatasetItem(item);
+    currentDatasetItem = enriched;
+    elements.fps.value = String(enriched.fps || 30);
+    autoTotalFrames = true;
+    setVideoSource(URL.createObjectURL(enriched.video_file), enriched.video_relative_path, true);
+    elements.videoId.value = videoIdForDatasetItem(enriched);
+    loadedVideoName = enriched.video_relative_path;
+    loadedVideoUrl = "";
+    segments = [];
+    editingIndex = null;
+    elements.startFrame.value = "0";
+    elements.endFrame.value = "0";
+    resetForm({ keepFrames: true });
+    renderDatasetInfo(enriched);
+    saveDraft();
+  }
+
+  async function enrichDatasetItem(item) {
+    if (!item.phase_cache_file || item._phase_loaded) return item;
+    const cache = await readJsonFile(item.phase_cache_file, {});
+    item._phase_loaded = true;
+    if (cache && typeof cache === "object") {
+      const task = String(cache.task_description || cache.task_name || "").trim();
+      if (task) item.task_description = task;
+      const cacheFps = Number.parseFloat(cache.fps);
+      if (Number.isFinite(cacheFps) && cacheFps > 0) item.fps = cacheFps;
+      if (cache.num_steps) item.num_steps = Number.parseInt(cache.num_steps, 10);
+      if (cache.primary_camera) item.primary_camera = String(cache.primary_camera);
+    }
+    return item;
+  }
+
+  function videoIdForDatasetItem(item) {
+    return `${item.dataset_id}__${item.episode_id}__${item.camera}`;
+  }
+
+  function renderDatasetInfo(item) {
+    elements.datasetInfo.hidden = false;
+    elements.datasetInfo.innerHTML = `
+      <dl>
+        <dt>Dataset</dt><dd>${escapeHtml(item.dataset_id)}</dd>
+        <dt>Episode</dt><dd>${escapeHtml(item.episode_id)}</dd>
+        <dt>Camera</dt><dd>${escapeHtml(item.camera)}</dd>
+        <dt>Task</dt><dd>${escapeHtml(item.task_description || "(unknown)")}</dd>
+        <dt>FPS</dt><dd>${escapeHtml(item.fps)}</dd>
+        <dt>Video</dt><dd>${escapeHtml(item.video_relative_path)}</dd>
+      </dl>
+    `;
   }
 
   function fps() {
@@ -456,14 +725,29 @@
   }
 
   function exportPayload() {
+    const dataset = currentDatasetItem ? {
+      id: currentDatasetItem.dataset_id,
+      root: currentDatasetItem.dataset_root,
+      episode_id: currentDatasetItem.episode_id,
+      camera: currentDatasetItem.camera,
+      camera_path: currentDatasetItem.camera_path,
+      task_description: currentDatasetItem.task_description || "",
+      video_relative_path: currentDatasetItem.video_relative_path,
+    } : null;
     return {
       schema_version: "temporal_segment_annotation_v41_labels_v2",
       exported_at: new Date().toISOString(),
       annotator_id: elements.annotatorId.value.trim(),
+      dataset,
+      dataset_id: dataset ? dataset.id : "",
+      episode_id: dataset ? dataset.episode_id : "",
+      camera: dataset ? dataset.camera : "",
+      task_description: dataset ? dataset.task_description : "",
       video: {
         id: elements.videoId.value.trim() || inferVideoId(loadedVideoName || loadedVideoUrl),
         name: loadedVideoName,
         source_url: loadedVideoUrl,
+        relative_path: dataset ? dataset.video_relative_path : "",
         fps: fps(),
         duration_sec: Number.isFinite(elements.video.duration) ? elements.video.duration : null,
         total_frames: computedTotalFrames(),
@@ -492,6 +776,11 @@
   function downloadCsv() {
     const payload = exportPayload();
     const rows = [[
+      "dataset_id",
+      "episode_id",
+      "camera",
+      "task_description",
+      "video_relative_path",
       "video_id",
       "annotator_id",
       "start_frame",
@@ -513,6 +802,11 @@
 
     for (const segment of payload.segments) {
       rows.push([
+        payload.dataset_id || "",
+        payload.episode_id || "",
+        payload.camera || "",
+        payload.task_description || "",
+        payload.video.relative_path || "",
         payload.video.id,
         payload.annotator_id,
         segment.start_frame,
@@ -536,6 +830,149 @@
     const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
     const name = filenameBase(payload.video.id, payload.annotator_id);
     downloadBlob(`${name}.csv`, csv, "text/csv;charset=utf-8");
+  }
+
+  function addCurrentAnnotationToBundle() {
+    const payload = exportPayload();
+    if (payload.segments.length === 0) {
+      showWarning("누적할 segment가 없습니다. 먼저 구간을 추가하세요.");
+      return;
+    }
+    const key = annotationBundleKey(payload);
+    const existingIndex = annotationBundle.findIndex((item) => item.key === key);
+    if (existingIndex >= 0) {
+      const ok = window.confirm("같은 annotator/dataset/episode/camera annotation이 이미 누적되어 있습니다. 새 내용으로 교체할까요?");
+      if (!ok) return;
+      annotationBundle[existingIndex] = { key, added_at: new Date().toISOString(), payload };
+    } else {
+      annotationBundle.push({ key, added_at: new Date().toISOString(), payload });
+    }
+    saveBundle();
+    renderBundle();
+    showWarning("");
+  }
+
+  function annotationBundleKey(payload) {
+    return [
+      payload.annotator_id || "annotator",
+      payload.dataset_id || "manual",
+      payload.episode_id || payload.video.id || "episode",
+      payload.camera || "camera",
+    ].join("|");
+  }
+
+  function downloadBundleJson() {
+    const bundle = bundlePayload();
+    if (bundle.annotations.length === 0) {
+      showWarning("다운로드할 누적 annotation이 없습니다.");
+      return;
+    }
+    const name = sanitizeFilename(`annotation_bundle_${elements.annotatorId.value.trim() || "annotator"}`);
+    downloadBlob(`${name}.json`, JSON.stringify(bundle, null, 2), "application/json;charset=utf-8");
+  }
+
+  function downloadBundleCsv() {
+    const bundle = bundlePayload();
+    if (bundle.annotations.length === 0) {
+      showWarning("다운로드할 누적 annotation이 없습니다.");
+      return;
+    }
+    const rows = [[
+      "bundle_index",
+      "dataset_id",
+      "episode_id",
+      "camera",
+      "task_description",
+      "video_relative_path",
+      "video_id",
+      "annotator_id",
+      "start_frame",
+      "end_frame",
+      "actor",
+      "interaction_primitive",
+      "target_type",
+      "object_articulation_type",
+      "relation_state",
+      "manipulated_entity_hint",
+      "target_entity_hint",
+      "note",
+    ]];
+
+    bundle.annotations.forEach((payload, bundleIndex) => {
+      for (const segment of payload.segments || []) {
+        rows.push([
+          bundleIndex,
+          payload.dataset_id || "",
+          payload.episode_id || "",
+          payload.camera || "",
+          payload.task_description || "",
+          (payload.video && payload.video.relative_path) || "",
+          (payload.video && payload.video.id) || "",
+          payload.annotator_id || "",
+          segment.start_frame,
+          segment.end_frame,
+          (segment.actor || []).join("|"),
+          (segment.action || segment.interaction_primitive || []).join("|"),
+          (segment.target_type || []).join("|"),
+          (segment.articulation_type || segment.object_articulation_type || []).join("|"),
+          (segment.relation_state || []).join("|"),
+          segment.manipulated_entity_hint || "",
+          segment.target_entity_hint || "",
+          segment.note || "",
+        ]);
+      }
+    });
+
+    const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
+    const name = sanitizeFilename(`annotation_bundle_${elements.annotatorId.value.trim() || "annotator"}`);
+    downloadBlob(`${name}.csv`, csv, "text/csv;charset=utf-8");
+  }
+
+  function bundlePayload() {
+    return {
+      schema_version: "temporal_segment_annotation_bundle_v1",
+      exported_at: new Date().toISOString(),
+      annotator_id: elements.annotatorId.value.trim(),
+      count: annotationBundle.length,
+      annotations: annotationBundle.map((item) => item.payload),
+    };
+  }
+
+  function saveBundle() {
+    try {
+      localStorage.setItem(BUNDLE_KEY, JSON.stringify(annotationBundle));
+    } catch (_) {
+      // Bundle save is best-effort only.
+    }
+  }
+
+  function restoreBundle() {
+    try {
+      const raw = localStorage.getItem(BUNDLE_KEY);
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) annotationBundle = parsed.filter((item) => item && item.payload);
+    } catch (_) {
+      annotationBundle = [];
+    }
+  }
+
+  function renderBundle() {
+    elements.bundleCount.textContent = `${annotationBundle.length}개`;
+    if (annotationBundle.length === 0) {
+      elements.bundleList.className = "bundle-list empty";
+      elements.bundleList.textContent = "아직 누적된 annotation이 없습니다.";
+      return;
+    }
+    elements.bundleList.className = "bundle-list";
+    elements.bundleList.innerHTML = "";
+    annotationBundle.forEach((item, index) => {
+      const payload = item.payload || {};
+      const div = document.createElement("div");
+      div.className = "bundle-item";
+      div.textContent = `${index + 1}. ${payload.dataset_id || "manual"} / ${payload.episode_id || payload.video?.id || "video"} / ${payload.camera || "-"} — ${(payload.segments || []).length} segments`;
+      elements.bundleList.appendChild(div);
+    });
   }
 
   function filenameBase(videoId, annotatorId) {
@@ -688,9 +1125,23 @@
   }
 
   function bindEvents() {
+    elements.datasetFolder.addEventListener("change", () => {
+      handleDatasetFolderSelection(elements.datasetFolder.files);
+    });
+
+    elements.datasetSelect.addEventListener("change", () => {
+      renderCameraSelector();
+    });
+
+    elements.loadDatasetVideo.addEventListener("click", () => {
+      loadSelectedDatasetVideo();
+    });
+
     elements.videoFile.addEventListener("change", () => {
       const file = elements.videoFile.files && elements.videoFile.files[0];
       if (!file) return;
+      currentDatasetItem = null;
+      elements.datasetInfo.hidden = true;
       setVideoSource(URL.createObjectURL(file), file.name, true);
     });
 
@@ -700,6 +1151,8 @@
         showWarning("비디오 URL을 입력하세요.");
         return;
       }
+      currentDatasetItem = null;
+      elements.datasetInfo.hidden = true;
       setVideoSource(url, inferVideoId(url), false);
     });
 
@@ -757,6 +1210,15 @@
 
     elements.exportJson.addEventListener("click", downloadJson);
     elements.exportCsv.addEventListener("click", downloadCsv);
+    elements.addToBundle.addEventListener("click", addCurrentAnnotationToBundle);
+    elements.downloadBundleJson.addEventListener("click", downloadBundleJson);
+    elements.downloadBundleCsv.addEventListener("click", downloadBundleCsv);
+    elements.clearBundle.addEventListener("click", () => {
+      if (annotationBundle.length > 0 && !window.confirm("누적된 annotation bundle을 모두 삭제할까요?")) return;
+      annotationBundle = [];
+      saveBundle();
+      renderBundle();
+    });
 
     elements.clearSegments.addEventListener("click", () => {
       if (segments.length > 0 && !window.confirm("등록된 모든 구간을 삭제할까요?")) return;
@@ -811,6 +1273,9 @@
     renderOptions("relation_state", elements.relationStateOptions);
     bindEvents();
     restoreDraft();
+    restoreBundle();
+    renderDatasetSelectors();
+    renderBundle();
     updateVideoMetadata();
     resetForm({ keepFrames: true });
   }
