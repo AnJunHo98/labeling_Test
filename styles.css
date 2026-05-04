@@ -301,11 +301,7 @@ legend {
 table {
   width: 100%;
   border-collapse: collapse;
-<<<<<<< HEAD
   min-width: 1180px;
-=======
-  min-width: 900px;
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
 }
 
 th,

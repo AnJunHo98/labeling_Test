@@ -9,7 +9,6 @@
       { value: "unknown_actor", label: "판단 불가" },
     ],
     action: [
-<<<<<<< HEAD
       { value: "approach", label: "approach / 대상에 접근" },
       { value: "hold", label: "hold / 잡고 있음·접촉 유지" },
       { value: "transport", label: "transport / 자유 물체 운반" },
@@ -46,28 +45,6 @@
       { value: "active_control_motion", label: "active_control_motion / 능동 관절 조작" },
       { value: "environment_contact", label: "environment_contact / 환경 접촉" },
       { value: "idle", label: "idle / 대기" },
-=======
-      { value: "reaching_object", label: "물체를 잡으러 가는 중" },
-      { value: "grasping_object", label: "물체를 잡는 중" },
-      { value: "moving_object", label: "물체를 옮기는 중" },
-      { value: "placing_object", label: "물체를 놓는 중" },
-      { value: "holding_object", label: "물체를 들고/잡고 있는 중" },
-      { value: "retracting_arm", label: "팔을 되돌리는 중" },
-      { value: "waiting", label: "대기/정지" },
-      { value: "unclear_action", label: "판단 불가" },
-      { value: "other_action", label: "기타" },
-    ],
-    object: [
-      { value: "generic_object", label: "물체" },
-      { value: "cup", label: "컵" },
-      { value: "box", label: "박스" },
-      { value: "tray", label: "트레이" },
-      { value: "handle", label: "손잡이" },
-      { value: "door", label: "문/서랍" },
-      { value: "tool", label: "도구" },
-      { value: "unknown_object", label: "판단 불가" },
-      { value: "other_object", label: "기타" },
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
     ],
   };
 
@@ -92,17 +69,11 @@
     endFrame: document.getElementById("endFrame"),
     actorOptions: document.getElementById("actorOptions"),
     actionOptions: document.getElementById("actionOptions"),
-<<<<<<< HEAD
     targetTypeOptions: document.getElementById("targetTypeOptions"),
     articulationOptions: document.getElementById("articulationOptions"),
     relationStateOptions: document.getElementById("relationStateOptions"),
     manipulatedEntity: document.getElementById("manipulatedEntity"),
     targetEntity: document.getElementById("targetEntity"),
-=======
-    objectOptions: document.getElementById("objectOptions"),
-    customAction: document.getElementById("customAction"),
-    customObject: document.getElementById("customObject"),
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
     note: document.getElementById("note"),
     warning: document.getElementById("warning"),
     saveSegment: document.getElementById("saveSegment"),
@@ -131,13 +102,9 @@
   const maps = {
     actor: labelMap("actor"),
     action: labelMap("action"),
-<<<<<<< HEAD
     target_type: labelMap("target_type"),
     articulation_type: labelMap("articulation_type"),
     relation_state: labelMap("relation_state"),
-=======
-    object: labelMap("object"),
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
   };
 
   function renderOptions(kind, container) {
@@ -271,7 +238,6 @@
     return (Array.isArray(values) ? values : []).map((value) => map.get(value) || value);
   }
 
-<<<<<<< HEAD
   function entityHintText(segment) {
     const manipulated = String(segment.manipulated_entity_hint || "").trim();
     const target = String(segment.target_entity_hint || "").trim();
@@ -279,8 +245,6 @@
     return manipulated || target || "";
   }
 
-=======
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
   function showWarning(message) {
     if (!message) {
       elements.warning.hidden = true;
@@ -306,22 +270,14 @@
 
     const actor = valuesFor("actor");
     const action = valuesFor("action");
-<<<<<<< HEAD
     const targetType = valuesFor("target_type");
     const articulationType = valuesFor("articulation_type");
     const relationState = valuesFor("relation_state");
-=======
-    const object = valuesFor("object");
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
     if (actor.length === 0) {
       throw new Error("팔/행위자를 하나 이상 선택하세요. 애매하면 '판단 불가'를 선택하세요.");
     }
     if (action.length === 0) {
-<<<<<<< HEAD
       throw new Error("행동 primitive를 하나 이상 선택하세요.");
-=======
-      throw new Error("행동을 하나 이상 선택하세요. 애매하면 '판단 불가'를 선택하세요.");
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
     }
 
     return {
@@ -330,17 +286,11 @@
       end_frame: end,
       actor,
       action,
-<<<<<<< HEAD
       target_type: targetType,
       articulation_type: articulationType,
       relation_state: relationState,
       manipulated_entity_hint: elements.manipulatedEntity.value.trim(),
       target_entity_hint: elements.targetEntity.value.trim(),
-=======
-      object,
-      custom_action: elements.customAction.value.trim(),
-      custom_object: elements.customObject.value.trim(),
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
       note: elements.note.value.trim(),
     };
   }
@@ -400,17 +350,11 @@
     }
     setValues("actor", []);
     setValues("action", []);
-<<<<<<< HEAD
     setValues("target_type", []);
     setValues("articulation_type", []);
     setValues("relation_state", []);
     elements.manipulatedEntity.value = "";
     elements.targetEntity.value = "";
-=======
-    setValues("object", []);
-    elements.customAction.value = "";
-    elements.customObject.value = "";
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
     elements.note.value = "";
     editingIndex = null;
     elements.saveSegment.textContent = "구간 추가";
@@ -423,11 +367,7 @@
     elements.segmentsBody.innerHTML = "";
 
     if (segments.length === 0) {
-<<<<<<< HEAD
       elements.segmentsBody.innerHTML = '<tr><td colspan="10" class="empty">아직 등록된 구간이 없습니다.</td></tr>';
-=======
-      elements.segmentsBody.innerHTML = '<tr><td colspan="7" class="empty">아직 등록된 구간이 없습니다.</td></tr>';
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
       renderTimeline();
       return;
     }
@@ -439,16 +379,11 @@
         <td>${index + 1}</td>
         <td>${segment.start_frame}~${segment.end_frame}</td>
         <td>${escapeHtml(labelsFor("actor", segment.actor).join(", "))}</td>
-<<<<<<< HEAD
         <td>${escapeHtml(labelsFor("action", segment.action).join(", "))}</td>
         <td>${escapeHtml(labelsFor("target_type", segment.target_type).join(", "))}</td>
         <td>${escapeHtml(labelsFor("articulation_type", segment.articulation_type).join(", "))}</td>
         <td>${escapeHtml(labelsFor("relation_state", segment.relation_state).join(", "))}</td>
         <td>${escapeHtml(entityHintText(segment))}</td>
-=======
-        <td>${escapeHtml(labelsFor("action", segment.action).join(", "))}${segment.custom_action ? `<br><small>${escapeHtml(segment.custom_action)}</small>` : ""}</td>
-        <td>${escapeHtml(labelsFor("object", segment.object).join(", "))}${segment.custom_object ? `<br><small>${escapeHtml(segment.custom_object)}</small>` : ""}</td>
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
         <td>${escapeHtml(segment.note || "")}</td>
         <td class="row-actions">
           <button type="button" data-edit="${index}">수정</button>
@@ -500,17 +435,11 @@
     elements.endFrame.value = String(segment.end_frame);
     setValues("actor", segment.actor);
     setValues("action", segment.action);
-<<<<<<< HEAD
     setValues("target_type", segment.target_type);
     setValues("articulation_type", segment.articulation_type);
     setValues("relation_state", segment.relation_state);
     elements.manipulatedEntity.value = segment.manipulated_entity_hint || "";
     elements.targetEntity.value = segment.target_entity_hint || "";
-=======
-    setValues("object", segment.object);
-    elements.customAction.value = segment.custom_action || "";
-    elements.customObject.value = segment.custom_object || "";
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
     elements.note.value = segment.note || "";
     elements.saveSegment.textContent = "구간 저장";
     seekToFrame(segment.start_frame);
@@ -528,11 +457,7 @@
 
   function exportPayload() {
     return {
-<<<<<<< HEAD
       schema_version: "temporal_segment_annotation_v41_labels_v2",
-=======
-      schema_version: "temporal_segment_annotation_mvp_v1",
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
       exported_at: new Date().toISOString(),
       annotator_id: elements.annotatorId.value.trim(),
       video: {
@@ -548,16 +473,12 @@
         ...segment,
         actor_labels: labelsFor("actor", segment.actor),
         action_labels: labelsFor("action", segment.action),
-<<<<<<< HEAD
         interaction_primitive: segment.action,
         interaction_primitive_labels: labelsFor("action", segment.action),
         target_type_labels: labelsFor("target_type", segment.target_type),
         object_articulation_type: segment.articulation_type,
         object_articulation_labels: labelsFor("articulation_type", segment.articulation_type),
         relation_state_labels: labelsFor("relation_state", segment.relation_state),
-=======
-        object_labels: labelsFor("object", segment.object),
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
       })),
     };
   }
@@ -577,7 +498,6 @@
       "end_frame",
       "actor",
       "actor_labels",
-<<<<<<< HEAD
       "interaction_primitive",
       "interaction_primitive_labels",
       "target_type",
@@ -588,14 +508,6 @@
       "relation_state_labels",
       "manipulated_entity_hint",
       "target_entity_hint",
-=======
-      "action",
-      "action_labels",
-      "object",
-      "object_labels",
-      "custom_action",
-      "custom_object",
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
       "note",
     ]];
 
@@ -608,7 +520,6 @@
         (segment.actor || []).join("|"),
         (segment.actor_labels || []).join("|"),
         (segment.action || []).join("|"),
-<<<<<<< HEAD
         (segment.interaction_primitive_labels || []).join("|"),
         (segment.target_type || []).join("|"),
         (segment.target_type_labels || []).join("|"),
@@ -618,13 +529,6 @@
         (segment.relation_state_labels || []).join("|"),
         segment.manipulated_entity_hint || "",
         segment.target_entity_hint || "",
-=======
-        (segment.action_labels || []).join("|"),
-        (segment.object || []).join("|"),
-        (segment.object_labels || []).join("|"),
-        segment.custom_action || "",
-        segment.custom_object || "",
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
         segment.note || "",
       ]);
     }
@@ -717,7 +621,6 @@
       start_frame: start,
       end_frame: end,
       actor: normalizeArray(raw.actor),
-<<<<<<< HEAD
       action: normalizeArray(raw.action || raw.interaction_primitive),
       target_type: normalizeArray(raw.target_type).concat(legacyObjectToTargetType(raw.object)),
       articulation_type: normalizeArray(
@@ -728,12 +631,6 @@
       relation_state: normalizeArray(raw.relation_state),
       manipulated_entity_hint: String(raw.manipulated_entity_hint || raw.custom_object || ""),
       target_entity_hint: String(raw.target_entity_hint || ""),
-=======
-      action: normalizeArray(raw.action),
-      object: normalizeArray(raw.object),
-      custom_action: String(raw.custom_action || ""),
-      custom_object: String(raw.custom_object || ""),
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
       note: String(raw.note || ""),
     };
   }
@@ -744,7 +641,6 @@
     return [];
   }
 
-<<<<<<< HEAD
   function legacyObjectToTargetType(value) {
     const items = normalizeArray(value);
     if (items.length === 0) return [];
@@ -761,8 +657,6 @@
     return [...out];
   }
 
-=======
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
   function saveDraft() {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(exportPayload()));
@@ -912,13 +806,9 @@
   function init() {
     renderOptions("actor", elements.actorOptions);
     renderOptions("action", elements.actionOptions);
-<<<<<<< HEAD
     renderOptions("target_type", elements.targetTypeOptions);
     renderOptions("articulation_type", elements.articulationOptions);
     renderOptions("relation_state", elements.relationStateOptions);
-=======
-    renderOptions("object", elements.objectOptions);
->>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
     bindEvents();
     restoreDraft();
     updateVideoMetadata();
