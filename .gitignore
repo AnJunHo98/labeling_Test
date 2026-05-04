@@ -1,0 +1,9 @@
+# Local annotation inputs/outputs should not be committed by default.
+videos/
+annotations/
+exports/
+*.mp4
+*.mov
+*.avi
+*.mkv
+*.webm

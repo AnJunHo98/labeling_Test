@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Temporal Frame Labeler</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="app-header">
+    <div>
+      <h1>Temporal Frame Labeler</h1>
+      <p>비디오의 start/end frame 구간을 고르고, 팔/행동/물체 라벨을 체크해 JSON/CSV로 저장합니다.</p>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="panel source-panel">
+      <h2>1. 비디오 불러오기</h2>
+      <div class="grid two-col">
+        <label>
+          로컬 비디오 파일
+          <input id="videoFile" type="file" accept="video/*">
+        </label>
+        <label>
+          비디오 URL
+          <div class="inline-row">
+            <input id="videoUrl" type="url" placeholder="https://.../episode_000001.mp4">
+            <button id="loadUrl" type="button">URL 로드</button>
+          </div>
+        </label>
+      </div>
+
+      <div class="grid four-col compact">
+        <label>
+          Annotator ID
+          <input id="annotatorId" type="text" placeholder="예: user01">
+        </label>
+        <label>
+          Video ID
+          <input id="videoId" type="text" placeholder="예: episode_000001">
+        </label>
+        <label>
+          FPS
+          <input id="fps" type="number" min="1" step="0.001" value="30">
+        </label>
+        <label>
+          Total frames
+          <input id="totalFrames" type="number" min="1" step="1" placeholder="자동 계산 / 직접 입력 가능">
+        </label>
+      </div>
+    </section>
+
+    <section class="panel video-panel">
+      <h2>2. 프레임 확인</h2>
+      <video id="video" controls preload="metadata"></video>
+
+      <div class="frame-status">
+        <strong>현재 frame:</strong> <span id="currentFrame">0</span>
+        <span class="muted">/</span>
+        <span id="maxFrame">?</span>
+        <span class="muted">현재 시간:</span> <span id="currentTime">0.000s</span>
+      </div>
+
+      <input id="frameSlider" class="frame-slider" type="range" min="0" max="0" value="0" step="1">
+
+      <div class="button-row wrap">
+        <button type="button" data-step="-30">-30f</button>
+        <button type="button" data-step="-10">-10f</button>
+        <button type="button" data-step="-1">-1f</button>
+        <button type="button" data-step="1">+1f</button>
+        <button type="button" data-step="10">+10f</button>
+        <button type="button" data-step="30">+30f</button>
+        <button id="markStart" type="button" class="primary">[ Start 지정</button>
+        <button id="markEnd" type="button" class="primary">] End 지정</button>
+      </div>
+
+      <p class="help">
+        단축키: <kbd>[</kbd> start, <kbd>]</kbd> end, <kbd>←</kbd>/<kbd>→</kbd> 1 frame 이동,
+        <kbd>Shift</kbd>+<kbd>←</kbd>/<kbd>→</kbd> 10 frame 이동, <kbd>Enter</kbd> 구간 저장, <kbd>Space</kbd> 재생/일시정지
+      </p>
+    </section>
+
+    <section class="panel label-panel">
+      <h2>3. 구간 라벨링</h2>
+
+      <div class="grid two-col">
+        <label>
+          Start frame
+          <input id="startFrame" type="number" min="0" step="1" value="0">
+        </label>
+        <label>
+          End frame
+          <input id="endFrame" type="number" min="0" step="1" value="0">
+        </label>
+      </div>
+
+      <fieldset>
+        <legend>팔 / 행위자</legend>
+        <div id="actorOptions" class="check-grid"></div>
+      </fieldset>
+
+      <fieldset>
+<<<<<<< HEAD
+        <legend>행동 primitive</legend>
+=======
+        <legend>행동</legend>
+>>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
+        <div id="actionOptions" class="check-grid"></div>
+      </fieldset>
+
+      <fieldset>
+<<<<<<< HEAD
+        <legend>대상 종류 target_type</legend>
+        <div id="targetTypeOptions" class="check-grid"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>물체/관절 운동 object_articulation</legend>
+        <div id="articulationOptions" class="check-grid"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>세부 관계 상태 relation_state</legend>
+        <div id="relationStateOptions" class="check-grid"></div>
+=======
+        <legend>물체</legend>
+        <div id="objectOptions" class="check-grid"></div>
+>>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
+      </fieldset>
+
+      <div class="grid two-col">
+        <label>
+<<<<<<< HEAD
+          조작/소유 물체 힌트
+          <input id="manipulatedEntity" type="text" placeholder="예: cup, tray, drawer handle">
+        </label>
+        <label>
+          목표/환경 힌트
+          <input id="targetEntity" type="text" placeholder="예: table, hole, drawer, button panel">
+=======
+          기타 행동 설명
+          <input id="customAction" type="text" placeholder="예: 왼팔로 트레이를 밀기 시작">
+        </label>
+        <label>
+          기타 물체 설명
+          <input id="customObject" type="text" placeholder="예: 투명 컵, 빨간 박스">
+>>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
+        </label>
+      </div>
+
+      <label>
+        메모
+        <textarea id="note" rows="3" placeholder="애매한 부분, 판단 근거 등을 적습니다."></textarea>
+      </label>
+
+      <div id="warning" class="warning" hidden></div>
+
+      <div class="button-row wrap">
+        <button id="saveSegment" type="button" class="primary">구간 추가</button>
+        <button id="resetForm" type="button">입력 초기화</button>
+      </div>
+    </section>
+
+    <section class="panel segments-panel">
+      <div class="section-heading">
+        <h2>4. 등록된 구간</h2>
+        <span id="segmentCount" class="badge">0개</span>
+      </div>
+
+      <div id="timeline" class="timeline" aria-label="segment timeline"></div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Frame</th>
+              <th>팔</th>
+<<<<<<< HEAD
+              <th>Primitive</th>
+              <th>Target</th>
+              <th>Articulation</th>
+              <th>Relation</th>
+              <th>Entity hint</th>
+=======
+              <th>행동</th>
+              <th>물체</th>
+>>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
+              <th>메모</th>
+              <th>관리</th>
+            </tr>
+          </thead>
+          <tbody id="segmentsBody">
+<<<<<<< HEAD
+            <tr><td colspan="10" class="empty">아직 등록된 구간이 없습니다.</td></tr>
+=======
+            <tr><td colspan="7" class="empty">아직 등록된 구간이 없습니다.</td></tr>
+>>>>>>> f69731155d503daac49a8ae25ba76d162b6f8d38
+          </tbody>
+        </table>
+      </div>
+
+      <div class="button-row wrap">
+        <button id="importJsonButton" type="button">JSON 불러오기</button>
+        <input id="importJson" type="file" accept="application/json,.json" hidden>
+        <button id="exportJson" type="button" class="primary">JSON 다운로드</button>
+        <button id="exportCsv" type="button">CSV 다운로드</button>
+        <button id="clearSegments" type="button" class="danger">전체 삭제</button>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>정적 MVP입니다. 결과는 브라우저에서 다운로드되며 서버로 자동 업로드되지 않습니다.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
