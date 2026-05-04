@@ -143,6 +143,7 @@
       setDatasetStatus("선택된 dataset 폴더 파일이 없습니다.");
       return;
     }
+    setDatasetStatus(`${files.length}개 파일 선택됨. dataset 구조를 읽는 중...`);
 
     try {
       const parsedItems = await parseDatasetFiles(files);
@@ -176,19 +177,31 @@
         roots.push(path.slice(0, -"/meta/info.json".length));
       }
     }
+    if (roots.length === 0) {
+      for (const file of files) {
+        const path = file.webkitRelativePath;
+        const marker = "/videos/";
+        if (path.includes(marker)) {
+          roots.push(path.slice(0, path.indexOf(marker)));
+        } else if (path.startsWith("videos/")) {
+          roots.push("");
+        }
+      }
+    }
 
     const items = [];
-    for (const root of roots.sort()) {
-      const info = await readJsonFile(byPath.get(`${root}/meta/info.json`), {});
-      const tasks = await readJsonlFile(byPath.get(`${root}/meta/tasks.jsonl`));
+    for (const root of [...new Set(roots)].sort()) {
+      const rootPrefix = root ? `${root}/` : "";
+      const info = await readJsonFile(byPath.get(`${rootPrefix}meta/info.json`), {});
+      const tasks = await readJsonlFile(byPath.get(`${rootPrefix}meta/tasks.jsonl`));
       const fpsValue = datasetFps(info);
-      const datasetId = root.split("/").pop() || root;
+      const datasetId = root.split("/").filter(Boolean).pop() || "selected_dataset";
       const defaultTask = defaultTaskDescription(tasks);
       const phaseCacheByEpisode = phaseCacheMap(files, root);
 
       for (const file of files) {
         const relativePath = file.webkitRelativePath;
-        const prefix = `${root}/videos/`;
+        const prefix = `${rootPrefix}videos/`;
         if (!relativePath.startsWith(prefix) || !relativePath.toLowerCase().endsWith(".mp4")) continue;
         const tail = relativePath.slice(prefix.length);
         const parts = tail.split("/");
@@ -227,10 +240,11 @@
   function phaseCacheMap(files, root) {
     const out = new Map();
     const preferred = [".phase1_v41_local", ".phase1_v40_local", ".phase1_local"];
+    const rootPrefix = root ? `${root}/` : "";
     for (const phaseRoot of preferred) {
       for (const file of files) {
         const path = file.webkitRelativePath;
-        if (!path.startsWith(`${root}/${phaseRoot}/`) || !path.endsWith(".json")) continue;
+        if (!path.startsWith(`${rootPrefix}${phaseRoot}/`) || !path.endsWith(".json")) continue;
         const match = path.match(/(episode_\d+)\.phase1(?:_v\d+)?(?:\.[^.]+)?\.json$/);
         if (match && !out.has(match[1])) out.set(match[1], file);
       }
