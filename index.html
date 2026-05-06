@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Temporal Frame Labeler</title>
-  <link rel="stylesheet" href="styles.css?v=dataset-folder-2">
+  <link rel="stylesheet" href="styles.css?v=dataset-folder-3">
 </head>
 <body>
   <header class="app-header">
@@ -28,7 +28,15 @@
         </label>
       </div>
 
-      <div id="datasetStatus" class="help compact">LeRobot dataset 폴더를 선택하면 meta/info.json, tasks.jsonl, videos/.../episode_*.mp4를 자동 인식합니다.</div>
+      <label class="compact">
+        로컬 dataset 경로
+        <div class="inline-row">
+          <input id="localDatasetPath" type="text" placeholder="/home/dam/jh_ws/dataset/dataset/human_label_anomaly_candidates_20260506/tuning">
+          <button id="loadLocalDatasetPath" type="button">경로 불러오기</button>
+        </div>
+      </label>
+
+      <div id="datasetStatus" class="help compact">LeRobot dataset 폴더를 선택하면 meta/info.json, tasks.jsonl, videos/.../episode_*.mp4를 자동 인식합니다. Symlink로 모은 후보 폴더는 local_server.py로 실행한 뒤 로컬 dataset 경로를 사용하세요.</div>
 
       <div class="grid four-col compact">
         <label>
@@ -226,6 +234,6 @@
     <p>정적 MVP입니다. 결과는 브라우저에서 다운로드되며 서버로 자동 업로드되지 않습니다.</p>
   </footer>
 
-  <script src="app.js?v=dataset-folder-2"></script>
+  <script src="app.js?v=dataset-folder-3"></script>
 </body>
 </html>

@@ -37,6 +37,24 @@ bimanual_panda_hand.BoxCleanup/
 
 주의: 경로 문자열(`/home/...`)만 입력해서 자동 접근하는 것은 브라우저 보안상 불가능합니다. 반드시 사용자가 폴더 선택 창에서 직접 선택해야 합니다.
 
+### Symlink 후보 폴더를 한 번에 여는 로컬 모드
+
+`human_label_anomaly_candidates_20260506/tuning/`처럼 dataset 폴더들을 symlink로 모아 둔 경우, 브라우저의 일반 `Dataset 폴더 선택`은 symlink 내부 파일을 넘겨주지 않을 수 있습니다.
+이때는 로컬 서버를 실행하면 `/home/.../tuning` 경로를 직접 스캔해서 symlink 대상 dataset들을 한 번에 불러올 수 있습니다.
+
+```bash
+cd /home/dam/jh_ws/constraint_estimation/annotation_web
+python3 local_server.py --port 8000
+```
+
+브라우저에서 `http://127.0.0.1:8000`을 열고 `로컬 dataset 경로`에 아래처럼 입력한 뒤 `경로 불러오기`를 누릅니다.
+
+```text
+/home/dam/jh_ws/dataset/dataset/human_label_anomaly_candidates_20260506/tuning
+```
+
+이 로컬 모드는 동영상 파일을 앱으로 복사/업로드하지 않고, 실행 중인 `local_server.py`가 필요한 파일만 로컬에서 제공합니다.
+
 ## 라벨링 흐름
 
 1. 페이지에 접속합니다.

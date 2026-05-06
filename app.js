@@ -53,6 +53,8 @@
 
   const elements = {
     datasetFolder: document.getElementById("datasetFolder"),
+    localDatasetPath: document.getElementById("localDatasetPath"),
+    loadLocalDatasetPath: document.getElementById("loadLocalDatasetPath"),
     datasetStatus: document.getElementById("datasetStatus"),
     datasetSelect: document.getElementById("datasetSelect"),
     cameraSelect: document.getElementById("cameraSelect"),
@@ -140,32 +142,99 @@
   async function handleDatasetFolderSelection(fileList) {
     const files = [...(fileList || [])].filter((file) => file.webkitRelativePath);
     if (files.length === 0) {
-      setDatasetStatus("선택된 dataset 폴더 파일이 없습니다.");
+      setDatasetStatus("선택된 dataset 폴더 파일이 없습니다. Symlink만 담긴 폴더라면 local_server.py로 실행한 뒤 로컬 dataset 경로를 사용하세요.");
       return;
     }
     setDatasetStatus(`${files.length}개 파일 선택됨. dataset 구조를 읽는 중...`);
 
     try {
       const parsedItems = await parseDatasetFiles(files);
-      if (parsedItems.length === 0) {
-        setDatasetStatus("meta/info.json과 videos/.../episode_*.mp4 구조를 찾지 못했습니다.");
-        return;
-      }
-
-      mergeDatasetItems(parsedItems);
-      renderDatasetSelectors();
-      setDatasetStatus(`${parsedItems.length}개 video stream 인식, 전체 ${datasetItems.length}개 stream 사용 가능.`);
-      if (!currentDatasetItem) {
-        elements.datasetSelect.value = episodeKey(parsedItems[0]);
-        renderCameraSelector();
-        elements.cameraSelect.value = parsedItems[0].camera;
-        await loadSelectedDatasetVideo({ clearExistingSegments: segments.length === 0 });
-      }
+      await addParsedDatasetItems(parsedItems);
     } catch (error) {
       setDatasetStatus(`Dataset 폴더 읽기 실패: ${error.message || error}`);
     } finally {
       elements.datasetFolder.value = "";
     }
+  }
+
+  async function handleLocalDatasetPath() {
+    const root = elements.localDatasetPath.value.trim();
+    if (!root) {
+      setDatasetStatus("로컬 dataset 경로를 입력하세요.");
+      return;
+    }
+    if (!/^https?:$/.test(window.location.protocol)) {
+      setDatasetStatus("로컬 dataset 경로 로딩은 `python3 local_server.py`로 실행한 http://127.0.0.1 페이지에서만 사용할 수 있습니다.");
+      return;
+    }
+
+    setDatasetStatus(`로컬 dataset 경로 스캔 중: ${root}`);
+    try {
+      const apiUrl = new URL("/api/datasets", window.location.href);
+      apiUrl.searchParams.set("root", root);
+      const response = await fetch(apiUrl);
+      if (!response.ok) {
+        throw new Error(await responseErrorMessage(response));
+      }
+      const payload = await response.json();
+      const parsedItems = (payload.items || []).map(normalizeLocalDatasetItem).filter(Boolean);
+      await addParsedDatasetItems(parsedItems);
+    } catch (error) {
+      setDatasetStatus(`로컬 dataset 경로 읽기 실패: ${error.message || error}`);
+    }
+  }
+
+  async function addParsedDatasetItems(parsedItems) {
+    if (parsedItems.length === 0) {
+      setDatasetStatus("meta/info.json과 videos/.../episode_*.mp4 구조를 찾지 못했습니다.");
+      return;
+    }
+
+    mergeDatasetItems(parsedItems);
+    renderDatasetSelectors();
+    setDatasetStatus(`${parsedItems.length}개 video stream 인식, 전체 ${datasetItems.length}개 stream 사용 가능.`);
+    if (!currentDatasetItem) {
+      elements.datasetSelect.value = episodeKey(parsedItems[0]);
+      renderCameraSelector();
+      elements.cameraSelect.value = parsedItems[0].camera;
+      await loadSelectedDatasetVideo({ clearExistingSegments: segments.length === 0 });
+    }
+  }
+
+  async function responseErrorMessage(response) {
+    const contentType = response.headers.get("content-type") || "";
+    if (contentType.includes("application/json")) {
+      const body = await response.json().catch(() => null);
+      if (body && body.error) return body.error;
+    }
+    if (response.status === 404) {
+      return "local_server.py로 실행한 페이지에서만 로컬 경로를 읽을 수 있습니다.";
+    }
+    const text = await response.text().catch(() => "");
+    return text.trim().slice(0, 200) || `${response.status} ${response.statusText}`;
+  }
+
+  function normalizeLocalDatasetItem(item) {
+    if (!item || !item.video_url || !item.episode_id) return null;
+    const datasetRoot = String(item.dataset_root || item.dataset_id || "");
+    const episodeId = String(item.episode_id);
+    const camera = String(item.camera || "camera");
+    const fpsValue = Number.parseFloat(item.fps);
+    return {
+      key: String(item.key || `${datasetRoot}|${episodeId}|${camera}`),
+      dataset_root: datasetRoot,
+      dataset_id: String(item.dataset_id || datasetRoot || "local_dataset"),
+      episode_id: episodeId,
+      camera,
+      camera_path: String(item.camera_path || camera),
+      video_url: String(item.video_url),
+      video_relative_path: String(item.video_relative_path || item.video_url),
+      fps: Number.isFinite(fpsValue) && fpsValue > 0 ? fpsValue : 30,
+      task_description: String(item.task_description || ""),
+      num_steps: item.num_steps,
+      primary_camera: item.primary_camera,
+      _phase_loaded: true,
+    };
   }
 
   async function parseDatasetFiles(files) {
@@ -358,10 +427,16 @@
     currentDatasetItem = enriched;
     elements.fps.value = String(enriched.fps || 30);
     autoTotalFrames = true;
-    setVideoSource(URL.createObjectURL(enriched.video_file), enriched.video_relative_path, true);
+    const isObjectUrl = Boolean(enriched.video_file);
+    const videoSource = isObjectUrl ? URL.createObjectURL(enriched.video_file) : enriched.video_url;
+    if (!videoSource) {
+      setDatasetStatus("선택한 dataset video를 열 수 없습니다.");
+      return;
+    }
+    setVideoSource(videoSource, enriched.video_relative_path || videoSource, isObjectUrl);
     elements.videoId.value = videoIdForDatasetItem(enriched);
     loadedVideoName = enriched.video_relative_path;
-    loadedVideoUrl = "";
+    loadedVideoUrl = isObjectUrl ? "" : videoSource;
     segments = [];
     editingIndex = null;
     elements.startFrame.value = "0";
@@ -1142,6 +1217,15 @@
     elements.datasetFolder.addEventListener("change", () => {
       handleDatasetFolderSelection(elements.datasetFolder.files);
     });
+
+    if (elements.localDatasetPath && elements.loadLocalDatasetPath) {
+      elements.loadLocalDatasetPath.addEventListener("click", handleLocalDatasetPath);
+      elements.localDatasetPath.addEventListener("keydown", (event) => {
+        if (event.key !== "Enter") return;
+        event.preventDefault();
+        handleLocalDatasetPath();
+      });
+    }
 
     elements.datasetSelect.addEventListener("change", () => {
       renderCameraSelector();
