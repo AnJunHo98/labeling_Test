@@ -1,20 +1,35 @@
 # labeling_Test
 
-GitHub Pages로 공유하는 temporal frame annotation 웹앱입니다.
-비디오의 start/end frame 구간을 선택하고 repo v41 기준 팔/interaction primitive/target type/articulation/relation-state 라벨을 체크한 뒤 JSON/CSV로 저장합니다.
+**English** | [한국어](README.ko.md)
 
-## 공유 URL
+Browser-based temporal frame annotation app for LeRobot video datasets, served on GitHub Pages with JSON/CSV export.
+
+## Overview
+
+A static web app (Temporal Frame Labeler) shared through GitHub Pages. You pick start/end frame ranges in a video, check labels for arm, interaction primitive, target type, articulation and relation state (based on the v41 label set), and save the result as JSON or CSV. The UI text is in Korean; the button names below are quoted as they appear in the app.
+
+## Shared URL
 
 ```text
 https://anjunho98.github.io/labeling_Test/
 ```
 
-## Dataset 폴더 선택 방식
+## Repository layout
 
-외부 annotator가 dataset 폴더를 자기 PC에 가지고 있으면, GitHub Pages 사이트에서 `Dataset 폴더 선택`으로 폴더를 직접 선택할 수 있습니다.
-브라우저는 사용자가 선택한 폴더 안의 파일에만 임시 접근합니다.
+| Path | Description |
+| --- | --- |
+| `index.html`, `app.js`, `styles.css` | The annotation web app (static, no build step) |
+| `local_server.py` | Optional local server for loading datasets by absolute path, including symlinked collections |
+| `.github/workflows/deploy-pages.yml` | GitHub Actions workflow that deploys the static site to GitHub Pages |
+| `.nojekyll` | Disables Jekyll processing on GitHub Pages |
 
-지원하는 구조:
+## Loading data
+
+### Selecting a dataset folder
+
+If an external annotator has the dataset folder on their own PC, they can select it directly on the GitHub Pages site with `Dataset 폴더 선택` (select dataset folder). The browser only gets temporary access to files inside the folder the user selected.
+
+Supported layout:
 
 ```text
 bimanual_panda_hand.BoxCleanup/
@@ -28,50 +43,53 @@ bimanual_panda_hand.BoxCleanup/
         └── observation.images.right_wrist_view/episode_000000.mp4
 ```
 
-자동 인식하는 정보:
+Detected automatically:
 
-- `meta/info.json`: FPS, video feature 정보
-- `meta/tasks.jsonl`: task description 후보
-- `videos/**/episode_*.mp4`: episode/camera별 비디오
-- 선택적으로 `.phase1_v41_local/**/episode_*.phase1_v41.json`: task/FPS 보강
+- `meta/info.json`: FPS and video feature info
+- `meta/tasks.jsonl`: task description candidates
+- `videos/**/episode_*.mp4`: videos per episode and camera
+- optionally `.phase1_v41_local/**/episode_*.phase1_v41.json`: extra task/FPS info
 
-주의: 경로 문자열(`/home/...`)만 입력해서 자동 접근하는 것은 브라우저 보안상 불가능합니다. 반드시 사용자가 폴더 선택 창에서 직접 선택해야 합니다.
+Note: typing a path string (e.g. `/home/...`) cannot give the page access to files, because of browser security. The user must pick the folder in the folder-selection dialog.
 
-### Symlink 후보 폴더를 한 번에 여는 로컬 모드
+A single video can also be loaded with `로컬 비디오 파일` (local video file) or by URL with `URL 로드` (load URL).
 
-`human_label_anomaly_candidates_20260506/tuning/`처럼 dataset 폴더들을 symlink로 모아 둔 경우, 브라우저의 일반 `Dataset 폴더 선택`은 symlink 내부 파일을 넘겨주지 않을 수 있습니다.
-이때는 로컬 서버를 실행하면 `/home/.../tuning` 경로를 직접 스캔해서 symlink 대상 dataset들을 한 번에 불러올 수 있습니다.
+### Local mode for symlinked candidate folders
+
+When dataset folders are gathered with symlinks (for example a `human_label_anomaly_candidates_20260506/tuning/` folder), the browser's regular `Dataset 폴더 선택` may not pass along the files behind the symlinks. In that case, run the local server, which scans the given absolute path directly and loads all symlinked datasets at once:
 
 ```bash
-cd /home/dam/jh_ws/constraint_estimation/annotation_web
+cd /path/to/labeling_Test
 python3 local_server.py --port 8000
 ```
 
-브라우저에서 `http://127.0.0.1:8000`을 열고 `로컬 dataset 경로`에 아래처럼 입력한 뒤 `경로 불러오기`를 누릅니다.
+Open `http://127.0.0.1:8000` in the browser, enter the folder in `로컬 dataset 경로` (local dataset path), for example:
 
 ```text
-/home/dam/jh_ws/dataset/dataset/human_label_anomaly_candidates_20260506/tuning
+/path/to/human_label_anomaly_candidates_20260506/tuning
 ```
 
-이 로컬 모드는 동영상 파일을 앱으로 복사/업로드하지 않고, 실행 중인 `local_server.py`가 필요한 파일만 로컬에서 제공합니다.
+and press `경로 불러오기` (load path).
 
-## 라벨링 흐름
+This local mode does not copy or upload the videos into the app; the running `local_server.py` serves only the files that are needed, locally. The server binds to `127.0.0.1` by default (`--host` and `--port` can be changed).
 
-1. 페이지에 접속합니다.
-2. `Dataset 폴더 선택`으로 LeRobot dataset 폴더 또는 여러 dataset을 담은 상위 폴더를 선택합니다.
-3. `Dataset / Episode`와 `Camera`를 고르고 `선택 영상 로드`를 누릅니다.
-4. 프레임을 보며 `[`로 start frame, `]`로 end frame을 지정합니다.
-5. 팔, 행동 primitive, 대상 종류, 물체/관절 운동, relation-state를 선택합니다.
-6. `구간 추가`를 누릅니다.
-7. 한 영상이 끝나면 `현재 annotation 누적`을 누릅니다.
-8. 다른 episode/camera/folder를 라벨링한 뒤 다시 누적합니다.
-9. 마지막에 `Bundle JSON 다운로드` 또는 `Bundle CSV 다운로드`로 누적 결과를 한 번에 저장합니다.
+## Labeling workflow
 
-개별 영상만 저장하려면 기존처럼 `JSON 다운로드` 또는 `CSV 다운로드`를 누르면 됩니다.
+1. Open the page.
+2. Use `Dataset 폴더 선택` to select a LeRobot dataset folder, or a parent folder that contains several datasets.
+3. Choose `Dataset / Episode` and `Camera`, then press `선택 영상 로드` (load selected video).
+4. While viewing frames, press `[` to set the start frame and `]` to set the end frame.
+5. Select the arm, action primitive, target type, object/joint motion (articulation) and relation state.
+6. Press `구간 추가` (add segment).
+7. When one video is done, press `현재 annotation 누적` (add current annotation to bundle).
+8. Label other episodes/cameras/folders and add them to the bundle as well.
+9. Finally, save all accumulated results at once with `Bundle JSON 다운로드` or `Bundle CSV 다운로드` (download bundle JSON/CSV).
 
-## Bundle JSON 구조
+To save a single video only, use `JSON 다운로드` or `CSV 다운로드` as before. A previously saved annotation JSON can be loaded back with `JSON 불러오기` (import JSON).
 
-여러 결과를 누적하면 하나의 bundle 파일에 각 annotation JSON이 배열로 들어갑니다.
+## Bundle JSON format
+
+When several results are accumulated, each annotation JSON is stored as an array element in a single bundle file.
 
 ```json
 {
@@ -94,7 +112,13 @@ python3 local_server.py --port 8000
 }
 ```
 
-## 라벨 기준
+## Label set
+
+Arm / actor:
+
+```text
+left_arm, right_arm, both_arms, unknown_actor
+```
 
 Primitive:
 
@@ -121,18 +145,18 @@ approach_target, pregrasp_contact, object_hold, object_transport, object_release
 align_to_control, control_contact, active_control_motion, environment_contact, idle
 ```
 
-## 단축키
+## Keyboard shortcuts
 
-- `[` : 현재 frame을 start frame으로 지정
-- `]` : 현재 frame을 end frame으로 지정
-- `←` / `→` : 1 frame 이동
-- `Shift` + `←` / `→` : 10 frame 이동
-- `Enter` : 현재 입력 구간 저장
-- `Space` : 재생/일시정지
+- `[` : set the current frame as the start frame
+- `]` : set the current frame as the end frame
+- `←` / `→` : move 1 frame
+- `Shift` + `←` / `→` : move 10 frames
+- `Enter` : save the current segment
+- `Space` : play/pause
 
-## GitHub Pages 설정
+## GitHub Pages setup
 
-가장 단순한 설정은 다음입니다.
+The simplest setup:
 
 ```text
 Settings → Pages → Build and deployment → Source: Deploy from a branch
@@ -141,10 +165,18 @@ Folder: /root
 Save
 ```
 
-GitHub Actions를 쓰려면 `Source: GitHub Actions`로 설정하고 포함된 workflow를 실행하세요.
+To use GitHub Actions instead, set `Source: GitHub Actions` and run the included workflow (`.github/workflows/deploy-pages.yml`, which also runs on every push to `main`).
 
-## 주의
+## Notes
 
-- 이 웹앱은 서버 DB에 자동 저장하지 않습니다. annotator가 JSON/CSV 파일을 다운로드해서 제출해야 합니다.
-- Bundle은 브라우저 localStorage에 임시 저장됩니다. 브라우저 캐시/사이트 데이터를 지우면 사라질 수 있으므로 작업 중간에도 다운로드를 권장합니다.
-- 비디오 파일은 repo에 직접 올리지 않는 것을 권장합니다. 각 annotator가 로컬 dataset 폴더를 선택하거나 별도 스토리지 URL을 사용하세요.
+- The app does not save anything to a server database. Annotators must download the JSON/CSV files and submit them.
+- The bundle is kept temporarily in the browser's localStorage. Clearing the browser cache/site data can remove it, so download intermediate results while working.
+- Committing video files to the repo is not recommended (`.gitignore` excludes common video formats). Each annotator should select a local dataset folder or use a separate storage URL.
+
+## Status
+
+Static MVP; last updated in May 2026.
+
+## License
+
+Released under the MIT License. See [LICENSE](LICENSE).
